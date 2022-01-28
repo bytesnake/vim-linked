@@ -41,10 +41,14 @@ macro_rules! export_fn {
             let input = CStr::from_ptr(input);
             let in_str = input.to_str().unwrap();
         
-            let res_str = singleton().inner.borrow_mut().$fn_name(in_str).unwrap();
+            let res_str = match singleton().inner.borrow_mut().$fn_name(in_str) {
+                Ok(s) => s,
+                Err(err) => format!("Link error: {}", err),
+            };
+
             let res_str = CString::new(res_str).unwrap();
 
-            res_str.as_ptr()
+            res_str.into_raw()
         }
     };
     ($fn_name:ident,usize) => {
