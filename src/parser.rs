@@ -97,15 +97,16 @@ impl Link {
     }
 }
 
-fn parse_header(input: &str) -> Option<(String, String)> {
+fn parse_header(input: &str) -> Result<(String, String)> {
     let parts = input.split("-").collect::<Vec<_>>();
     
     match parts[..] {
-        [a, b] => Some((a.trim().to_string(), b.trim().to_string())),
-        _ => None
+        [a, b] => Ok((a.trim().to_string(), b.trim().to_string())),
+        _ => Err(Error::InvalidHeader(input.into())),
     }
 }
 
+#[derive(Debug)]
 pub struct Parse {
     nodes: HashMap<NodeId, (String, usize, Vec<Link>)>,
     backlinks: HashMap<Link, Vec<NodeId>>,
@@ -127,7 +128,7 @@ impl Parse {
         let mut nodes = HashMap::new();
         let mut backlinks = HashMap::new();
 
-        let mut current_node: Option<(NodeId, (String, usize, Vec<Link>))> = None;
+        let mut last_note: Option<String> = None;
 
         while let Some((elm, range)) = source.next() {
             match elm {
@@ -135,33 +136,25 @@ impl Parse {
                     if let Some((Event::Text(title),_)) = source.next() {
                         let line_num = content[..range.start].matches("\n").count();
 
-                        if let Some((id, title)) = parse_header(&title) {
-                            current_node = Some((id, (title, line_num, Vec::new())));
-                        } else {
-                            current_node = None;
-                        }
-                    }
-                },
-                Event::End(Tag::Heading(HeadingLevel::H1, _, _)) => {
-                    if let Some(current_node) = current_node.take() {
-                        // insert backlinks
-                        for link in &current_node.1.2 {
-                            // we don't save backlinks to individual text section within a single
-                            // note
-                            let mut link = link.clone();
-                            link.text = None;
+                        let (id, title) = parse_header(&title)?;
+                        last_note = Some(id.clone());
+                        nodes.insert(id, (title, line_num, Vec::new()));
 
-                            backlinks.entry(link).or_insert(Vec::new())
-                                .push(current_node.0.to_string());
-                        }
-
-                        nodes.insert(current_node.0, current_node.1);
                     }
                 },
                 Event::Start(Tag::Link(_, link, _)) => {
-                    if let Some(ref mut elm) = current_node {
+                    if let Some(id) = &last_note {
                         let link = Link::from_str(&link[..])?;
-                        elm.1.2.push(link);
+
+                        // we don't save backlinks to individual text section within a single
+                        // note
+                        let mut link2 = link.clone();
+                        link2.text = None;
+
+                        backlinks.entry(link2).or_insert(Vec::new())
+                            .push(id.to_string());
+
+                        nodes.get_mut(&id.to_string()).unwrap().2.push(link);
                     }
                 },
                 _ => {}
@@ -213,7 +206,8 @@ impl Parse {
 }
 
 mod tests {
-    use super::{Link, Result, Error};
+    use super::{Parse, Link, Result, Error};
+
     use std::path::PathBuf;
 
     fn link(path: Option<&str>, note: Option<&str>, text: Option<&str>) -> Link {
@@ -268,5 +262,37 @@ mod tests {
             assert_eq!(&link, expected);
             assert!(!&Link::is_valid(sample));
         }
+    }
+
+    #[test]
+    fn markdown_parsing() {
+        let content = r"
+# asdf - This is a sample note
+
+Some text
+
+More text *import text*
+
+# ghjk - Second note
+
+This [links](@asdf) to first one";
+
+        let mut parser = Parse::new();
+        parser.update_content(&content).unwrap();
+
+        assert_eq!(
+            parser.nodes,
+            vec![
+                ("asdf".into(), ("This is a sample note".into(), 1, Vec::new())),
+                ("ghjk".into(), ("Second note".into(), 7, vec![Link { path: None, note: Some("asdf".into()), text: None }]))
+            ].into_iter().collect()
+        );
+
+        assert_eq!(
+            parser.backlinks,
+            vec![
+                (Link { path: None, note: Some("asdf".into()), text: None }, vec!["ghjk".into()])
+            ].into_iter().collect()
+        );
     }
 }
