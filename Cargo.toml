@@ -10,5 +10,5 @@ name = "linked"
 crate-type = ["cdylib"]      # Creates dynamic lib
 
 [dependencies]
-tinyjson = "2"
+miniserde = "0.1"
 pulldown-cmark = "0.9"

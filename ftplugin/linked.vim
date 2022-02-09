@@ -4,8 +4,7 @@ endif
 let g:loaded_linked = 1
 
 let s:path = resolve(expand('<sfile>:p:h') . "/../")
-execute 'source ' . s:path . '/libcallex-vim/autoload/libcallex.vim'
-let g:inst = libcallex#load(s:path . "/target/release/liblinked.so")
+let s:inst = libcallex#load(s:path . "/target/release/liblinked.so")
 
 function! StartsWith(longer, shorter) abort
   return a:longer[0:len(a:shorter)-1] ==# a:shorter
@@ -18,15 +17,15 @@ function! PrintError(msg) abort
     echohl None
 endfunction
 
-function! TextChanged()
+function! s:TextChanged()
     let current_buf = join(getline(1,'$'), "\n") 
-    call g:inst.call("update_content", [current_buf], "")
+    call s:inst.call("update_content", [current_buf], "")
     mode
 endfunction
 
-function! GoTo(mode_set)
+function! s:GoTo(mode_set)
     let args = {'mode': a:mode_set, 'cursor': getpos(".")}
-    let ret = g:inst.call("go_to", [json_encode(args)], "string")
+    let ret = s:inst.call("go_to", [json_encode(args)], "string")
 
     if StartsWith(ret, "Link error:")
         call PrintError(ret)
@@ -38,9 +37,9 @@ function! GoTo(mode_set)
 endfunction
 
 
-autocmd VimEnter,TextChanged,InsertLeave * call TextChanged()
+autocmd VimEnter,TextChanged,InsertLeave * call <SID>TextChanged()
 
-:nmap gf :call GoTo("fort")<CR>
-:nmap gb :call GoTo("back")<CR>
-:nmap gF :call GoTo("fortend")<CR>
-:nmap gB :call GoTo("backend")<CR>
+:nmap gf :call <SID>GoTo("fort")<CR>
+:nmap gb :call <SID>GoTo("back")<CR>
+:nmap gF :call <SID>GoTo("fortend")<CR>
+:nmap gB :call <SID>GoTo("backend")<CR>

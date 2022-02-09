@@ -5,6 +5,7 @@ use std::sync::Once;
 use std::cell::RefCell;
 use std::mem::MaybeUninit;
 
+mod error;
 mod parser;
 
 use parser::Parse;
@@ -43,7 +44,7 @@ macro_rules! export_fn {
         
             let res_str = match singleton().inner.borrow_mut().$fn_name(in_str) {
                 Ok(s) => s,
-                Err(err) => format!("Link error: {}", err),
+                Err(err) => format!("Link error: {:?}", err),
             };
 
             let res_str = CString::new(res_str).unwrap();
