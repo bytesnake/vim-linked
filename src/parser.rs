@@ -189,18 +189,25 @@ impl Parse {
             }
         }
 
-        match (jump_to.mode, link) {
-            (JumpMode::Forward, Some(Link { note, .. })) => {
-                let note = note.unwrap();
+        let (path, note, text) = match link {
+            Some(Link { path, note, text}) => (path, note, text),
+            None => return Ok(String::new())
+        };
+
+        match (jump_to.mode, path, note, text) {
+            (JumpMode::Forward, _, Some(note), _) => {
                 match self.nodes.get(&note) {
                     Some(ref node) => Ok(format!("{{ \"line\": {}}}", node.1 + 1)),
                     None => Err(Error::MissingNote(format!("id {} not found", note))),
                 }
             },
-            (JumpMode::ForwardEnd, None) => {
-                return Ok("".into());
+            (JumpMode::Forward, Some(path), _, Some(text)) => {
+                Ok(format!("{{ \"path\": \"{}\", \"text\": \"{}\"}}", path.to_str().unwrap(), text))
             },
-            x => panic!("call mode {:?} not supported!", x)
+            (mode, path, note, text) => {
+                let err_msg = format!("Mode {:?} not supported with {:?} {:?} {:?}", mode, path, note, text);
+                Err(Error::Other(err_msg))
+            }
         }
     }
 }

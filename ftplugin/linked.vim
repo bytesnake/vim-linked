@@ -31,15 +31,30 @@ function! s:GoTo(mode_set)
         call PrintError(ret)
     elseif !empty(ret)
         let ret = json_decode(ret)
-        :echo ret
-        call setpos('.', [0, ret['line'], 1, 1])
+	if has_key(ret, 'path')
+		if ret['path'] =~ ".pdf$"
+			let command = "evince " . ret['path']
+			if has_key(ret, 'text')
+				let command .= ' -l ' . ret['text']
+			endif
+			let command .= ' > /dev/null'
+
+			echohl DiagnosticInfo
+			echomsg command
+			echohl None
+
+			call system(command)
+		endif
+	elseif has_key(ret, 'line')
+		call setpos('.', [0, ret['line'], 1, 1])
+	endif
     endif
 endfunction
 
 
 autocmd VimEnter,TextChanged,InsertLeave * call <SID>TextChanged()
 
-:nmap gf :call <SID>GoTo("fort")<CR>
-:nmap gb :call <SID>GoTo("back")<CR>
-:nmap gF :call <SID>GoTo("fortend")<CR>
-:nmap gB :call <SID>GoTo("backend")<CR>
+:nmap gf :call <SID>GoTo("Forward")<CR>
+:nmap gb :call <SID>GoTo("Backward")<CR>
+:nmap gF :call <SID>GoTo("ForwardEnd")<CR>
+:nmap gB :call <SID>GoTo("BackwardEnd")<CR>
