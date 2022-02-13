@@ -33,19 +33,20 @@ function! s:GoTo(mode_set)
         let ret = json_decode(ret)
 	if has_key(ret, 'path')
 		if ret['path'] =~ ".pdf$"
-			let command = "evince " . ret['path']
+			let command = "evince \"" . ret['path'] . "\""
 			if has_key(ret, 'text')
-				let command .= ' -l ' . ret['text']
+				let command .= ' -l "' . ret['text'] . '"'
 			endif
-			let command .= ' > /dev/null'
+			let command .= ' > /dev/null  &'
 
-			echohl DiagnosticInfo
-			echomsg command
-			echohl None
+			"echohl DiagnosticInfo
+			"echo command
+			"echohl None
 
 			call system(command)
 		endif
 	elseif has_key(ret, 'line')
+		normal! m`
 		call setpos('.', [0, ret['line'], 1, 1])
 	endif
     endif
@@ -58,3 +59,34 @@ autocmd VimEnter,TextChanged,InsertLeave * call <SID>TextChanged()
 :nmap gb :call <SID>GoTo("Backward")<CR>
 :nmap gF :call <SID>GoTo("ForwardEnd")<CR>
 :nmap gB :call <SID>GoTo("BackwardEnd")<CR>
+
+" create new note
+function! s:add_zettel()
+    execute "normal ]]O"
+    execute "r!tr -dc A-Za-z0-9 </dev/urandom | head -c 12 ; echo ' - '" | normal I# 
+    execute "startinsert!"
+endfunction
+
+noremap zn :call <SID>add_zettel()<CR>
+
+" indent note
+function! s:indent_zettel()
+	let pos = getpos('.')
+	let @/ = '#\{1,6}'
+	execute "normal /\<cr>NI#\<esc>"
+	call setpos('.', pos)
+endfunction
+
+function! s:undent_zettel()
+	let pos = getpos('.')
+	let @/ = '#\{1,6}'
+	execute "normal /\<cr>Nx"
+	call setpos('.', pos)
+endfunction
+
+noremap z> :call <SID>indent_zettel()<CR>
+noremap z< :call <SID>undent_zettel()<CR>
+
+" set textwidth
+set textwidth=80
+set colorcolumn=-1

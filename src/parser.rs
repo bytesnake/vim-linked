@@ -185,6 +185,14 @@ impl Parse {
                     link = Some(Link::from_str(&content[..])?);
                     break;
                 },
+                Event::Text(content) => {
+                    if !content.starts_with("(") || !content.ends_with(")") {
+                        continue;
+                    }
+
+                    link = Some(Link::from_str(&content[1..content.len()-1])?);
+                    break;
+                },
                 _ => {}
             }
         }
