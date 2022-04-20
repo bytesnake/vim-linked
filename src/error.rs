@@ -1,4 +1,4 @@
-use std::{io, result};
+use std::result;
 use crate::parser::NodeId;
 
 pub type Result<T> = result::Result<T, Error>;

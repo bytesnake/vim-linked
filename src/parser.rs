@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::collections::HashMap;
 use pulldown_cmark::{Parser, Tag, HeadingLevel, Event};
-use miniserde::{json, Serialize, Deserialize};
+use miniserde::{json, Deserialize};
 
 use crate::error::{Result, Error};
 
@@ -40,41 +40,41 @@ impl Link {
     pub fn from_str(input: &str) -> Result<Link> {
         let mut link = Link::empty();
 
-        if input.len() == 0 {
+        if input.is_empty() {
             return Err(Error::InvalidLink(input.into(), "Empty query".into()));
-        } else if input.matches("@").count() > 1 {
+        } else if input.matches('@').count() > 1 {
             return Err(Error::InvalidLink(input.into(), "More than one `@` seperator in link".into()));
-        } else if input.matches("#").count() > 1 {
+        } else if input.matches('#').count() > 1 {
             return Err(Error::InvalidLink(input.into(), "More than one `#` seperator in link".into()));
         }
 
         // check if link contains note id
-        if input.contains("@") {
-            let elms = input.splitn(2, "@").collect::<Vec<_>>();
+        if input.contains('@') {
+            let elms = input.splitn(2, '@').collect::<Vec<_>>();
 
-            if elms[0].len() > 0 {
+            if !elms[0].is_empty() {
                 link.path = Some(PathBuf::from(elms[0]));
             }
             // check for text search
-            if elms[1].contains("#") {
-                let elms = elms[1].splitn(2, "#").collect::<Vec<_>>();
+            if elms[1].contains('#') {
+                let elms = elms[1].splitn(2, '#').collect::<Vec<_>>();
 
                 link.note = Some(elms[0].into());
                 link.text = Some(elms[1].into());
             } else {
                 link.note = Some(elms[1].into());
             }
-        } else if input.contains("#") {
+        } else if input.contains('#') {
             // if it doesn't contain a note ID, check for path with text seperator "#"
-            let elms = input.splitn(2, "#").collect::<Vec<_>>();
+            let elms = input.splitn(2, '#').collect::<Vec<_>>();
 
-            if elms[0].len() > 0 {
+            if !elms[0].is_empty() {
                 link.path = Some(PathBuf::from(elms[0]));
             }
             link.text = Some(elms[1].into());
         } else {
             // if it doesn't use a text seperator, it just points to a local file
-            if input.len() > 0 {
+            if !input.is_empty() {
                 link.path = Some(PathBuf::from(input));
             }
         }
@@ -82,23 +82,18 @@ impl Link {
         Ok(link)
     }
 
-    pub fn to_string(mut self) -> String {
-        let mut out = String::new();
-        if let Some(ref mut path) = self.path {
-            out.push_str(path.to_str().unwrap());
-        }
+    //pub fn to_string(mut self) -> String {
+    //    let mut out = String::new();
+    //    if let Some(ref mut path) = self.path {
+    //        out.push_str(path.to_str().unwrap());
+    //    }
 
-        out
-    }
-
-
-    pub fn is_valid(input: &str) -> bool {
-        Self::from_str(input).is_ok()
-    }
+    //    out
+    //}
 }
 
 fn parse_header(input: &str) -> Result<(String, String)> {
-    let parts = input.split("-").collect::<Vec<_>>();
+    let parts = input.split('-').collect::<Vec<_>>();
     
     match parts[..] {
         [a, b] => Ok((a.trim().to_string(), b.trim().to_string())),
@@ -134,7 +129,7 @@ impl Parse {
             match elm {
                 Event::Start(Tag::Heading(HeadingLevel::H1, _, _)) => {
                     if let Some((Event::Text(title),_)) = source.next() {
-                        let line_num = content[..range.start].matches("\n").count();
+                        let line_num = content[..range.start].matches('\n').count();
 
                         let (id, title) = parse_header(&title)?;
                         last_note = Some(id.clone());
@@ -151,7 +146,7 @@ impl Parse {
                         let mut link2 = link.clone();
                         link2.text = None;
 
-                        backlinks.entry(link2).or_insert(Vec::new())
+                        backlinks.entry(link2).or_insert_with(Vec::new)
                             .push(id.to_string());
 
                         nodes.get_mut(&id.to_string()).unwrap().2.push(link);
@@ -186,7 +181,7 @@ impl Parse {
                     break;
                 },
                 Event::Text(content) => {
-                    if !content.starts_with("(") || !content.ends_with(")") {
+                    if !content.starts_with('(') || !content.ends_with(')') {
                         continue;
                     }
 
@@ -205,7 +200,7 @@ impl Parse {
         match (jump_to.mode, path, note, text) {
             (JumpMode::Forward, _, Some(note), _) => {
                 match self.nodes.get(&note) {
-                    Some(ref node) => Ok(format!("{{ \"line\": {}}}", node.1 + 1)),
+                    Some(node) => Ok(format!("{{ \"line\": {}}}", node.1 + 1)),
                     None => Err(Error::MissingNote(format!("id {} not found", note))),
                 }
             },
@@ -220,13 +215,14 @@ impl Parse {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::{Parse, Link, Result, Error};
 
     use std::path::PathBuf;
 
     fn link(path: Option<&str>, note: Option<&str>, text: Option<&str>) -> Link {
-        let path = path.map(|x| PathBuf::from(x));
+        let path = path.map(PathBuf::from);
         let note = note.map(|x| x.to_string());
         let text = text.map(|x| x.to_string());
 
@@ -267,15 +263,15 @@ mod tests {
             invalid_link("/blub/@fjdsakl##432", "More than one `#` seperator in link"),
         ];
 
-        for (sample, expected) in samples.into_iter().zip(success.into_iter()) {
+        for (sample, expected) in samples.iter().zip(success.iter()) {
             let link = Link::from_str(sample);
             assert_eq!(&link, expected);
         }
 
-        for (sample, expected) in samples_err.into_iter().zip(fails.into_iter()) {
+        for (sample, expected) in samples_err.iter().zip(fails.iter()) {
             let link = Link::from_str(sample);
             assert_eq!(&link, expected);
-            assert!(!&Link::is_valid(sample));
+            assert!(!Link::from_str(sample).is_ok());
         }
     }
 
@@ -293,7 +289,7 @@ More text *import text*
 This [links](@asdf) to first one";
 
         let mut parser = Parse::new();
-        parser.update_content(&content).unwrap();
+        parser.update_content(content).unwrap();
 
         assert_eq!(
             parser.nodes,

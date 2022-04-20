@@ -87,6 +87,8 @@ endfunction
 noremap z> :call <SID>indent_zettel()<CR>
 noremap z< :call <SID>undent_zettel()<CR>
 
-" set textwidth
+" enable visible text border and do not wrap to play nicely with
+" concealed URL elements
 set textwidth=80
 set colorcolumn=-1
+set nowrap
