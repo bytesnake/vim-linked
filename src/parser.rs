@@ -130,7 +130,7 @@ impl Parse {
 
                 (nr, map)
             });
-        new_lines.insert(1, 1);
+        new_lines.insert(0, 1);
 
         let mut source = Parser::new(content).into_offset_iter();
 
@@ -140,7 +140,7 @@ impl Parse {
         let mut last_note: Option<String> = None;
 
         while let Some((elm, range)) = source.next() {
-            let line: usize = *new_lines.range(..range.start).next().unwrap().1;
+            let line: usize = *new_lines.range(..=range.start).rev().next().unwrap().1;
 
             match elm {
                 Event::Start(Tag::Heading(HeadingLevel::H1, _, _)) => {
@@ -165,7 +165,7 @@ impl Parse {
                         backlinks.entry(link2).or_insert_with(Vec::new)
                             .push(id.to_string());
 
-                        nodes.get_mut(&id.to_string()).unwrap().2.push(link);
+                        nodes.get_mut(id).unwrap().2.push(link);
                     }
                 },
                 _ => {}
@@ -182,10 +182,15 @@ impl Parse {
     pub fn go_to(&mut self, infos: &str) -> Result<String> {
         let jump_to: JumpTo = json::from_str(infos).unwrap();
         let (line, shift) = (&jump_to.cursor[1], &jump_to.cursor[2]);
+        let line = *line as usize - 1;
+
+        if line >= self.content.len() {
+            return Err(Error::Other("Content not completely parsed".into()));
+        }
 
         // first check if we have a link
         let mut link: Option<Link> = None;
-        let line_content: &str = &self.content[*line as usize - 1];
+        let line_content: &str = &self.content[line];
         for (elm, range) in Parser::new(line_content).into_offset_iter() {
             match elm {
                 Event::Start(Tag::Link(_, content, _)) => {
@@ -193,7 +198,7 @@ impl Parse {
                         continue;
                     }
 
-                    link = Some(Link::from_str(*line, &content[..])?);
+                    link = Some(Link::from_str(line + 1, &content[..])?);
                     break;
                 },
                 Event::Text(content) => {
@@ -201,7 +206,7 @@ impl Parse {
                         continue;
                     }
 
-                    link = Some(Link::from_str(*line, &content[1..content.len()-1])?);
+                    link = Some(Link::from_str(line + 1, &content[1..content.len()-1])?);
                     break;
                 },
                 _ => {}

@@ -19,12 +19,11 @@ endfunction
 
 function! s:TextChanged()
     let current_buf = join(getline(1,'$'), "\n") 
-    let ret =s:inst.call("update_content", [current_buf], "string")
+    let ret = s:inst.call("update_content", [current_buf], "string")
 
     if StartsWith(ret, "Error:")
         call PrintError(ret)
     endif
-    mode
 endfunction
 
 function! s:GoTo(mode_set)

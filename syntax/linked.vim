@@ -20,7 +20,7 @@ syn region zettelHeader matchgroup=mkdHeading
             \ contains=zettelId,zettelTitle
 
 " Match tags and assign tag color
-syn match zettelTag "^§\S\+"
+syn match zettelTag "§\S\+"
 
 " Copied from vim-markdown
 syn spell toplevel
