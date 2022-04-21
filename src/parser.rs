@@ -93,7 +93,7 @@ impl Link {
 }
 
 fn parse_header(input: &str) -> Result<(String, String)> {
-    let parts = input.split('-').collect::<Vec<_>>();
+    let parts = input.splitn(2, '-').collect::<Vec<_>>();
     
     match parts[..] {
         [a, b] => Ok((a.trim().to_string(), b.trim().to_string())),
