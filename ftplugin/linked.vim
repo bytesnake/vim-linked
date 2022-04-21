@@ -65,8 +65,13 @@ autocmd VimEnter,TextChanged,InsertLeave * call <SID>TextChanged()
 
 " create new note
 function! s:add_zettel()
-    execute "normal ]]O"
-    execute "r!tr -dc A-Za-z0-9 </dev/urandom | head -c 12 ; echo ' - '" | normal I# 
+    let pos = search("^# ", "W")
+    if pos == 0
+        execute "normal Go"
+    else
+        execute "normal O"
+    endif
+    execute "r!tr -dc A-Za-z0-9 </dev/urandom | head -c 12 ; echo ' - '" | normal I#
     execute "startinsert!"
 endfunction
 
