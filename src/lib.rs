@@ -63,11 +63,18 @@ macro_rules! export_fn {
     };
     ($fn_name:ident,()) => {
         #[no_mangle]
-        pub unsafe extern "C" fn $fn_name(input: *const c_char) {
+        pub unsafe extern "C" fn $fn_name(input: *const c_char) -> *const c_char {
             let input = CStr::from_ptr(input);
             let in_str = input.to_str().unwrap();
         
-            singleton().inner.borrow_mut().$fn_name(in_str).unwrap();
+            let res_str = match singleton().inner.borrow_mut().$fn_name(in_str) {
+                Ok(_) => "".into(),
+                Err(err) => format!("Error: {:?}", err),
+            };
+
+            let res_str = CString::new(res_str).unwrap();
+
+            res_str.into_raw()
         }
     }
 }

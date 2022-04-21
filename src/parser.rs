@@ -1,6 +1,7 @@
 use std::path::PathBuf;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use pulldown_cmark::{Parser, Tag, HeadingLevel, Event};
+use regex::Regex;
 use miniserde::{json, Deserialize};
 
 use crate::error::{Result, Error};
@@ -37,15 +38,15 @@ impl Link {
         }
     }
 
-    pub fn from_str(input: &str) -> Result<Link> {
+    pub fn from_str(line: usize, input: &str) -> Result<Link> {
         let mut link = Link::empty();
 
         if input.is_empty() {
-            return Err(Error::InvalidLink(input.into(), "Empty query".into()));
+            return Err(Error::InvalidLink(line, input.into(), "Empty query".into()));
         } else if input.matches('@').count() > 1 {
-            return Err(Error::InvalidLink(input.into(), "More than one `@` seperator in link".into()));
+            return Err(Error::InvalidLink(line, input.into(), "More than one `@` seperator in link".into()));
         } else if input.matches('#').count() > 1 {
-            return Err(Error::InvalidLink(input.into(), "More than one `#` seperator in link".into()));
+            return Err(Error::InvalidLink(line, input.into(), "More than one `#` seperator in link".into()));
         }
 
         // check if link contains note id
@@ -92,12 +93,12 @@ impl Link {
     //}
 }
 
-fn parse_header(input: &str) -> Result<(String, String)> {
+fn parse_header(line: usize, input: &str) -> Result<(String, String)> {
     let parts = input.splitn(2, '-').collect::<Vec<_>>();
     
     match parts[..] {
         [a, b] => Ok((a.trim().to_string(), b.trim().to_string())),
-        _ => Err(Error::InvalidHeader(input.into())),
+        _ => Err(Error::InvalidHeader(line, input.into())),
     }
 }
 
@@ -106,6 +107,7 @@ pub struct Parse {
     nodes: HashMap<NodeId, (String, usize, Vec<Link>)>,
     backlinks: HashMap<Link, Vec<NodeId>>,
     content: Vec<String>,
+    newlines: Regex,
 }
 
 impl Parse {
@@ -114,10 +116,22 @@ impl Parse {
             nodes: HashMap::new(),
             backlinks: HashMap::new(),
             content: Vec::new(),
+            newlines: Regex::new(r"\n").unwrap(),
         }
     }
 
     pub fn update_content(&mut self, content: &str) -> Result<()> {
+        // put new lines into a btree map for later
+        let (_, mut new_lines) = self.newlines.find_iter(content)
+            .map(|x| x.start())
+            .fold((1, BTreeMap::new()), |(mut nr, mut map): (usize, BTreeMap<usize, usize>), idx| {
+                nr += 1;
+                map.insert(idx, nr);
+
+                (nr, map)
+            });
+        new_lines.insert(1, 1);
+
         let mut source = Parser::new(content).into_offset_iter();
 
         let mut nodes = HashMap::new();
@@ -126,12 +140,14 @@ impl Parse {
         let mut last_note: Option<String> = None;
 
         while let Some((elm, range)) = source.next() {
+            let line: usize = *new_lines.range(..range.start).next().unwrap().1;
+
             match elm {
                 Event::Start(Tag::Heading(HeadingLevel::H1, _, _)) => {
                     if let Some((Event::Text(title),_)) = source.next() {
                         let line_num = content[..range.start].matches('\n').count();
 
-                        let (id, title) = parse_header(&title)?;
+                        let (id, title) = parse_header(line, &title)?;
                         last_note = Some(id.clone());
                         nodes.insert(id, (title, line_num, Vec::new()));
 
@@ -139,7 +155,7 @@ impl Parse {
                 },
                 Event::Start(Tag::Link(_, link, _)) => {
                     if let Some(id) = &last_note {
-                        let link = Link::from_str(&link[..])?;
+                        let link = Link::from_str(line, &link[..])?;
 
                         // we don't save backlinks to individual text section within a single
                         // note
@@ -169,15 +185,15 @@ impl Parse {
 
         // first check if we have a link
         let mut link: Option<Link> = None;
-        let line: &str = &self.content[*line as usize - 1];
-        for (elm, range) in Parser::new(line).into_offset_iter() {
+        let line_content: &str = &self.content[*line as usize - 1];
+        for (elm, range) in Parser::new(line_content).into_offset_iter() {
             match elm {
                 Event::Start(Tag::Link(_, content, _)) => {
                     if !range.contains(&(*shift as usize)) {
                         continue;
                     }
 
-                    link = Some(Link::from_str(&content[..])?);
+                    link = Some(Link::from_str(*line, &content[..])?);
                     break;
                 },
                 Event::Text(content) => {
@@ -185,7 +201,7 @@ impl Parse {
                         continue;
                     }
 
-                    link = Some(Link::from_str(&content[1..content.len()-1])?);
+                    link = Some(Link::from_str(*line, &content[1..content.len()-1])?);
                     break;
                 },
                 _ => {}
@@ -232,7 +248,7 @@ mod tests {
     }
 
     fn invalid_link(query: &str, error: &str) -> Result<Link> {
-        Err(Error::InvalidLink(query.into(), error.into()))
+        Err(Error::InvalidLink(0, query.into(), error.into()))
     }
 
     #[test]
@@ -264,14 +280,14 @@ mod tests {
         ];
 
         for (sample, expected) in samples.iter().zip(success.iter()) {
-            let link = Link::from_str(sample);
+            let link = Link::from_str(0, sample);
             assert_eq!(&link, expected);
         }
 
         for (sample, expected) in samples_err.iter().zip(fails.iter()) {
-            let link = Link::from_str(sample);
+            let link = Link::from_str(0, sample);
             assert_eq!(&link, expected);
-            assert!(!Link::from_str(sample).is_ok());
+            assert!(!Link::from_str(0, sample).is_ok());
         }
     }
 

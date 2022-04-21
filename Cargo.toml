@@ -12,3 +12,4 @@ crate-type = ["cdylib"]      # Creates dynamic lib
 [dependencies]
 miniserde = "0.1"
 pulldown-cmark = "0.9"
+regex = "1.5.4"

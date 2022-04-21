@@ -5,8 +5,8 @@ pub type Result<T> = result::Result<T, Error>;
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    InvalidLink(String, String),
-    InvalidHeader(String),
+    InvalidLink(usize, String, String),
+    InvalidHeader(usize, String),
     MissingNote(NodeId),
     Other(String),
 }
