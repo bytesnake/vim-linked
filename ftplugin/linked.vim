@@ -55,8 +55,6 @@ function! s:GoTo(mode_set)
 			else
 				execute 'edit' l:ret['path']
 			endif
-
-			call <SID>TextChanged()
 		endif
 	elseif has_key(ret, 'line')
 		normal! m`
@@ -66,7 +64,7 @@ function! s:GoTo(mode_set)
 endfunction
 
 
-autocmd VimEnter,TextChanged,InsertLeave * call <SID>TextChanged()
+autocmd VimEnter,BufEnter,TextChanged,InsertLeave * call <SID>TextChanged()
 
 :nmap gf :call <SID>GoTo("Forward")<CR>
 :nmap gb :call <SID>GoTo("Backward")<CR>
