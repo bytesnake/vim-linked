@@ -194,8 +194,12 @@ impl Parse {
         let mut link: Option<Link> = None;
         let line_content: &str = &self.content[line];
 
-        for cap in self.links.captures_iter(line_content) {
-            if cap.get(0).unwrap().range().contains(shift as &usize) {
+        // collect all into vector
+        let caps = self.links.captures_iter(line_content).collect::<Vec<_>>();
+
+        // if only a single elements, then jump to the position regardless of position
+        for cap in &caps {
+            if caps.len() == 1 || cap.get(0).unwrap().range().contains(shift as &usize) {
                 link = Some(Link::from_str(line + 1, &cap[2])?);
                 break;
             }

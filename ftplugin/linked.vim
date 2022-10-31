@@ -30,8 +30,6 @@ function! s:GoTo(mode_set)
     let args = {'mode': a:mode_set, 'cursor': getpos(".")}
     let ret = s:inst.call("go_to", [json_encode(args)], "string")
 
-    echo ret
-
     if StartsWith(ret, "Link error:")
         call PrintError(ret)
     elseif !empty(ret)
