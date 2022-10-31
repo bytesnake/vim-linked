@@ -107,6 +107,7 @@ pub struct Parse {
     nodes: HashMap<NodeId, (String, usize, Vec<Link>)>,
     backlinks: HashMap<Link, Vec<NodeId>>,
     content: Vec<String>,
+    links: Regex,
     newlines: Regex,
 }
 
@@ -116,6 +117,7 @@ impl Parse {
             nodes: HashMap::new(),
             backlinks: HashMap::new(),
             content: Vec::new(),
+            links: Regex::new(r"(?:__|[*#])|\[(.*?)\]\((.*?)\)").unwrap(),
             newlines: Regex::new(r"\n").unwrap(),
         }
     }
@@ -191,25 +193,11 @@ impl Parse {
         // first check if we have a link
         let mut link: Option<Link> = None;
         let line_content: &str = &self.content[line];
-        for (elm, range) in Parser::new(line_content).into_offset_iter() {
-            match elm {
-                Event::Start(Tag::Link(_, content, _)) => {
-                    if !range.contains(&(*shift as usize)) {
-                        continue;
-                    }
 
-                    link = Some(Link::from_str(line + 1, &content[..])?);
-                    break;
-                },
-                Event::Text(content) => {
-                    if !content.starts_with('(') || !content.ends_with(')') {
-                        continue;
-                    }
-
-                    link = Some(Link::from_str(line + 1, &content[1..content.len()-1])?);
-                    break;
-                },
-                _ => {}
+        for cap in self.links.captures_iter(line_content) {
+            if cap.get(0).unwrap().range().contains(shift as &usize) {
+                link = Some(Link::from_str(line + 1, &cap[2])?);
+                break;
             }
         }
 
@@ -219,6 +207,9 @@ impl Parse {
         };
 
         match (jump_to.mode, path, note, text) {
+            (JumpMode::Forward, Some(path), None, None) => {
+                Ok(format!("{{ \"path\": \"{}\"}}", path.to_str().unwrap()))
+            },
             (JumpMode::Forward, _, Some(note), _) => {
                 match self.nodes.get(&note) {
                     Some(node) => Ok(format!("{{ \"line\": {}}}", node.1 + 1)),

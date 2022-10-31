@@ -30,15 +30,17 @@ function! s:GoTo(mode_set)
     let args = {'mode': a:mode_set, 'cursor': getpos(".")}
     let ret = s:inst.call("go_to", [json_encode(args)], "string")
 
+    echo ret
+
     if StartsWith(ret, "Link error:")
         call PrintError(ret)
     elseif !empty(ret)
         let ret = json_decode(ret)
-	if has_key(ret, 'path')
-		if ret['path'] =~ ".pdf$"
-			let command = "evince \"" . ret['path'] . "\""
-			if has_key(ret, 'text')
-				let command .= ' -l "' . ret['text'] . '"'
+	if has_key(l:ret, 'path')
+		if l:ret['path'] =~ ".pdf$"
+			let command = "evince \"" . l:ret['path'] . "\""
+			if has_key(l:ret, 'text')
+				let command .= ' -l "' . l:ret['text'] . '"'
 			endif
 			let command .= ' > /dev/null  &'
 
@@ -47,6 +49,16 @@ function! s:GoTo(mode_set)
 			"echohl None
 
 			call system(command)
+		elseif l:ret['path'] =~ ".md$"
+			if has_key(l:ret, 'text')
+				execute 'edit' l:ret['path'] '+/' l:ret['text']
+			elseif has_key(l:ret, 'line')
+				execute 'edit' l:ret['path'] '+:' l:ret['line']
+			else
+				execute 'edit' l:ret['path']
+			endif
+
+			call <SID>TextChanged()
 		endif
 	elseif has_key(ret, 'line')
 		normal! m`
